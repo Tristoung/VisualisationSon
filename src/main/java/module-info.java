@@ -9,6 +9,8 @@ module org.example.visualisationsons {
     requires org.kordamp.ikonli.javafx;
     requires org.kordamp.bootstrapfx.core;
     requires com.almasb.fxgl.all;
+    requires opencv;
+    requires java.desktop;
 
     opens org.example.visualisationsons to javafx.fxml;
     exports org.example.visualisationsons;
