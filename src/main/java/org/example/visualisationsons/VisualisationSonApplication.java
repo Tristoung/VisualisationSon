@@ -15,6 +15,8 @@ import org.opencv.imgproc.Imgproc;
 
 import java.io.ByteArrayInputStream;
 import java.io.File;
+import java.util.ArrayList;
+import java.util.List;
 
 public class VisualisationSonApplication extends Application {
     private ImageView imageView;
@@ -49,11 +51,12 @@ public class VisualisationSonApplication extends Application {
     private void handleLoadButtonAction(Stage stage) {
         FileChooser fileChooser = new FileChooser();
         fileChooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("Images", "*.png", "*.jpg", "*.jpeg", "*.bmp"));
-        File selectedFile = fileChooser.showOpenDialog(stage);
+        File selectedFile = fileChooser.showOpenDialog(stage);      // selectedFile = path vers l'image choisie
 
         if (selectedFile != null) {
             try {
-                processImage(selectedFile);
+                inputImage = processImage(selectedFile);
+                imageView.setImage(inputImage);
 
             } catch (Exception e) {
                 System.err.println("Erreur lors du chargement de l'image : " + e.getMessage());
@@ -62,6 +65,8 @@ public class VisualisationSonApplication extends Application {
     }
 
     private Image processImage (File inputFile) {
+        // fonction qui prend en argument un path vers une image et qui renvoie une image javafx modifiée correctement
+
         String imagePath = inputFile.getAbsolutePath();
         Mat inputMat = Imgcodecs.imread(imagePath);
         // Redimmensionner en 64x64
@@ -73,21 +78,51 @@ public class VisualisationSonApplication extends Application {
 
         // Réduire la résolution à 4 bits (16 niveaux de gris)
         for (int i = 0; i < grayMat.rows(); i++) {
-            for (int j = 0; j < grayMat.cols(); j++) {
-                double[] pixel = grayMat.get(i, j);
+            for (int j = 0; j < grayMat.cols(); j++) {              // on parcourt la matrice de pixels
+                double[] pixel = grayMat.get(i, j);                 // pour chaque pixel (pixel est un tableau de double contenant qu'une seule valeur)
                 if (pixel != null) {
                     // Réduction à 4 bits : 0 à 255 -> 0 à 15
-                    int reducedValue = (int) (pixel[0] / 16) * 16; // On divise par 16 puis on multiplie pour revenir à un niveau discret
+                    int reducedValue = (int) (pixel[0] / 16) * 16;  // On divise par 16 puis on multiplie pour revenir à un nombre allant de 0 à 255 qui soit divisible par 16
                     grayMat.put(i, j, reducedValue);
                 }
             }
         }
 
-        inputImage = matToImage(grayMat);
-        imageView.setImage(inputImage);
+        List<int[]> columnList = new ArrayList<>();             // on crée une liste de colonnes
+
+        for (int col = 0; col < grayMat.cols(); col++) {        // pour chaque colonne
+            int[] column = new int[grayMat.rows()];             // on crée une liste de pixel représentant une colonne
+            for (int row = 0; row < grayMat.rows(); row++) {    // puis, pour chaque pixel de la colonne (pour chaque row de la colonne)
+                double[] pixel = grayMat.get(row, col);         // on prend la valeur du pixel (valeur étant un multiple de 16 allant de 0 à 240)
+                if (pixel != null) {                            // protection
+                    int reducedValue = (int) (pixel[0] / 16);   // on récupère le niveau de gris allant de 0 à 15 en divisant la valeur du pixel par 16
+                    column[grayMat.rows() - 1 - row] = reducedValue;       // on ajoute le niveau de gris au tableau (je remplis le tableau dans l'autre sens pour avoir une lecture de bas en haut de l'image)
+                }
+            }
+            columnList.add(column);                             // on ajoute la colonne à la liste de colonnes
+        }
+
+        // DEBUG ça sert a rien
+        for (int i = 0; i < columnList.size(); i++) {
+            String temp = "";
+            for (int j = 0; j < columnList.get(i).length; j++) {
+                int n = columnList.get(i)[j];
+                if (n < 10) {
+                    temp += columnList.get(i)[j] + ", ";
+                } else {
+                    temp += columnList.get(i)[j] + ",";
+                }
+            }
+            System.out.println(temp);
+        }
+        // FIN DEBUG qui sert à rien
+
+        inputImage = matToImage(grayMat);       // reconvertir la matrice en image compréhensible par javafx
 
         return inputImage;
     }
+
+// ########################### CONVERTISSEURS OPENCV <-> JAVAFX #####################################
 
 
     // Convertir l'image JavaFX en matrice OpenCV (Mat)
