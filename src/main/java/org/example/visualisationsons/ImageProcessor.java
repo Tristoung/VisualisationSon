@@ -29,11 +29,49 @@ public class ImageProcessor {
         // Extraire les colonnes
         List<int[]> columnList = extractColumnData(grayMat);
 
+        calculAmplitudeFrequence(columnList);
+
         // DEBUG ça sert à rien
         debugColumnData(columnList);
 
         // Reconversion en image compréhensible par JavaFX
         return Utils.matToImage(grayMat);
+    }
+
+    public static void calculAmplitudeFrequence(List<int[]> tableauNiveauxGris) {
+        int rows = 64;
+        double fMin = 100;    // Fréquence minimale (en Hz)
+        double fMax = 10000;  // Fréquence maximale (en Hz)
+
+        double[] frequencies = new double[rows];
+        for (int i = 0; i < rows; i++) {
+            frequencies[i] = fMin + i * (fMax - fMin) / (rows - 1);
+        }
+
+        double[] frequencies_res = new double[rows];
+
+
+        for (int x = 0; x < tableauNiveauxGris.size(); x++) {
+            double s = 0;
+            int[] column = tableauNiveauxGris.get(x);
+
+            for (int y = 0; y < rows; y++) {
+                int gl = column[y];
+                double fit = frequencies[y];
+
+                s += gl * Math.sin(2 * Math.PI * fit);
+            }
+            frequencies_res[x] = s;
+        }
+
+//        for (double freq : frequencies_res) {
+//            System.out.println(freq);
+//        }
+
+        // Affichage des fréquences pour chaque ligne
+//        for (int i = 0; i < frequencies.length; i++) {
+//            System.out.printf("Ligne %d : %.2f Hz%n", i, frequencies[i]);
+//        }
     }
 
     private static void reduceGrayScaleResolution(Mat grayMat) {
