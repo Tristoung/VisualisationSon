@@ -1,3 +1,5 @@
+package squelettes.javasound;
+
 import javax.sound.sampled.*;
 
 public class SoundGenerator {

@@ -6,8 +6,6 @@ import org.opencv.imgcodecs.Imgcodecs;
 import org.opencv.imgproc.Imgproc;
 
 import java.io.File;
-import java.util.ArrayList;
-import java.util.List;
 
 public class ImageProcessor {
 
@@ -26,52 +24,92 @@ public class ImageProcessor {
         // Réduire la résolution à 4 bits (16 niveaux de gris)
         reduceGrayScaleResolution(grayMat);
 
-        // Extraire les colonnes
-        List<int[]> columnList = extractColumnData(grayMat);
+        // Précalcul des sinusoidales sans pondération
+        double[][] precalc_sin_tab = calculTableauSinusoidales();
 
-        calculAmplitudeFrequence(columnList);
+        // Extraire les colonnes
+        int[][] columnTab = extractColumnData(grayMat);
+
+        double[][] periode_tab = new double[64][689];
+
+        double[][] tab_final = new double[64][689];
+
+        for (int col = 0; col < columnTab.length; col++) {
+            for (int row = 0; row < columnTab[col].length; row++) {
+                double[] precalc_i = precalc_sin_tab[row];
+                int gl = columnTab[col][row];
+
+                // Multiplier chaque élément de precalc_i par gl
+                double[] result = new double[precalc_i.length];
+                for (int k = 0; k < precalc_i.length; k++) {
+                    result[k] = precalc_i[k] * gl;
+                }
+
+                // Stocker le résultat dans periode_tab
+                periode_tab[col] = result;
+            }
+            // Initialisation du tableau final
+            double[] tab_pour_un_buffer = new double[periode_tab[0].length]; // Longueur basée sur un tableau individuel
+
+            // Additionner chaque tableau dans periode_tab
+            for (double[] currentArray : periode_tab) {
+                for (int i = 0; i < currentArray.length; i++) {
+                    tab_pour_un_buffer[i] += currentArray[i]; // Addition position par position
+                }
+            }
+
+            tab_final[col] = tab_pour_un_buffer;
+        }
+
+        for (double[] column : tab_final) { // Pour chaque colonne dans le tableau 2D
+            StringBuilder temp = new StringBuilder();
+            for (double value : column) { // Pour chaque valeur dans la colonne
+                temp.append(value + ",");
+            }
+            System.out.println(temp); // Affiche la représentation de la colonne
+        }
+        SinusoidalSoundGenerator.playSoundFromFinalTab(tab_final);
+
+
 
         // DEBUG ça sert à rien
-        debugColumnData(columnList);
+//        debugColumnData(columnTab);
 
         // Reconversion en image compréhensible par JavaFX
         return Utils.matToImage(grayMat);
     }
 
-    public static void calculAmplitudeFrequence(List<int[]> tableauNiveauxGris) {
-        int rows = 64;
-        double fMin = 100;    // Fréquence minimale (en Hz)
-        double fMax = 10000;  // Fréquence maximale (en Hz)
+    public static double[][] calculTableauSinusoidales() {
+        int rows = 64; // Nombre d'ondes sinusoïdales
+        final int F_ECH = 44100; // Échantillons par seconde
+        double fMin = 300; // Fréquence minimale (en Hz)
+        double fMax = 3000; // Fréquence maximale (en Hz)
 
-        double[] frequencies = new double[rows];
+        // Tableau des fréquences (f0 à f63)
+        double[] f_tab = new double[rows];
         for (int i = 0; i < rows; i++) {
-            frequencies[i] = fMin + i * (fMax - fMin) / (rows - 1);
+            f_tab[i] = fMin + i * (fMax - fMin) / (rows - 1);
         }
 
-        double[] frequencies_res = new double[rows];
+        // Taille d'un tableau correspondant à une période (1/64e de seconde)
+        int samplesPerPeriod = F_ECH / rows;
 
+        // Tableau 2D pour stocker les ondes sinusoïdales
+        double[][] sinusoidales_selon_frequence = new double[rows][samplesPerPeriod];
 
-        for (int x = 0; x < tableauNiveauxGris.size(); x++) {
-            double s = 0;
-            int[] column = tableauNiveauxGris.get(x);
+        // Générer les ondes sinusoïdales
+        for (int i = 0; i < rows; i++) {
+            double frequency = f_tab[i]; // Fréquence pour cette onde
 
-            for (int y = 0; y < rows; y++) {
-                int gl = column[y];
-                double fit = frequencies[y];
-
-                s += gl * Math.sin(2 * Math.PI * fit);
+            // Créer une seule période de l'onde sinusoïdale
+            for (int j = 0; j < samplesPerPeriod; j++) {
+                double t = (double) j / F_ECH; // Temps correspondant pour l'échantillon
+                sinusoidales_selon_frequence[i][j] = Math.sin(2 * Math.PI * frequency * t); // Calcul de l'onde sinusoïdale
             }
-            frequencies_res[x] = s;
         }
 
-//        for (double freq : frequencies_res) {
-//            System.out.println(freq);
-//        }
-
-        // Affichage des fréquences pour chaque ligne
-//        for (int i = 0; i < frequencies.length; i++) {
-//            System.out.printf("Ligne %d : %.2f Hz%n", i, frequencies[i]);
-//        }
+        // Retourner le tableau 2D
+        return sinusoidales_selon_frequence;
     }
 
     private static void reduceGrayScaleResolution(Mat grayMat) {
@@ -87,31 +125,32 @@ public class ImageProcessor {
         }
     }
 
-    private static List<int[]> extractColumnData(Mat grayMat) {
-        List<int[]> columnList = new ArrayList<>();                     // On crée une liste de colonnes
+    private static int[][] extractColumnData(Mat grayMat) {
+        // Initialiser un tableau 2D pour stocker les données de chaque colonne
+        int[][] columnArray = new int[grayMat.cols()][grayMat.rows()];
 
-        for (int col = 0; col < grayMat.cols(); col++) {                // Pour chaque colonne
-            int[] column = new int[grayMat.rows()];                     // On crée une liste de pixels représentant une colonne
-            for (int row = 0; row < grayMat.rows(); row++) {            // Puis, pour chaque pixel de la colonne (pour chaque row de la colonne)
-                double[] pixel = grayMat.get(row, col);                 // On prend la valeur du pixel
-                if (pixel != null) { // Protection
-                    int reducedValue = (int) (pixel[0] / 16);           // On récupère le niveau de gris allant de 0 à 15
-                    column[grayMat.rows() - 1 - row] = reducedValue;    // Remplissage inverse pour lecture bas-haut
+        for (int col = 0; col < grayMat.cols(); col++) {                        // Pour chaque colonne
+            for (int row = 0; row < grayMat.rows(); row++) {                    // Pour chaque pixel de la colonne (par ligne)
+                double[] pixel = grayMat.get(row, col);                         // Récupère la valeur du pixel
+                if (pixel != null) {                                            // Protection pour éviter les valeurs nulles
+                    int reducedValue = (int) (pixel[0] / 16);                   // Réduction du niveau de gris à une valeur entre 0 et 15
+                    columnArray[col][grayMat.rows() - 1 - row] = reducedValue;  // Remplissage inverse pour lecture bas-haut
                 }
             }
-            columnList.add(column); // On ajoute la colonne à la liste de colonnes
         }
 
-        return columnList;
+        return columnArray; // Retourne le tableau 2D
     }
 
-    private static void debugColumnData(List<int[]> columnList) {
-        for (int[] ints : columnList) {
+
+    private static void debugColumnData(int[][] columnArray) {
+        for (int[] column : columnArray) { // Pour chaque colonne dans le tableau 2D
             StringBuilder temp = new StringBuilder();
-            for (int value : ints) {
+            for (int value : column) { // Pour chaque valeur dans la colonne
                 temp.append(value < 10 ? value + ", " : value + ",");
             }
-            System.out.println(temp);
+            System.out.println(temp); // Affiche la représentation de la colonne
         }
     }
+
 }

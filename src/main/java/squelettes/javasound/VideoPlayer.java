@@ -1,3 +1,4 @@
+package squelettes.javasound;
 
 import javafx.application.Application;
 import javafx.scene.Scene;

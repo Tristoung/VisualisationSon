@@ -11,7 +11,9 @@ module org.example.visualisationsons {
     requires com.almasb.fxgl.all;
     requires opencv;
     requires java.desktop;
+    requires javafx.media;
 
     opens org.example.visualisationsons to javafx.fxml;
     exports org.example.visualisationsons;
+    exports squelettes.javasound to javafx.graphics;
 }
