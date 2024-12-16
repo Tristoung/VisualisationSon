@@ -50,6 +50,10 @@ public class VisualisationSonApplication extends Application {
             try {
                 Image inputImage = ImageProcessor.processImage(selectedFile);
                 imageView.setImage(inputImage);
+
+                new Thread(() -> {
+                    ImageProcessor.makeSound(inputImage);
+                }).start();
             } catch (Exception e) {
                 System.err.println("Erreur lors du chargement de l'image : " + e.getMessage());
             }

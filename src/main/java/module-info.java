@@ -12,6 +12,7 @@ module org.example.visualisationsons {
     requires opencv;
     requires java.desktop;
     requires javafx.media;
+    requires jdk.jshell;
 
     opens org.example.visualisationsons to javafx.fxml;
     exports org.example.visualisationsons;
